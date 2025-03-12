@@ -67,8 +67,6 @@ with mp_pose.Pose(static_image_mode=False) as pose:
             cv2.putText(output, str(int(angle)), (x2 + 30, y2), 1, 1.5, (128, 0, 250), 2)
             cv2.putText(output, str(count), (10, 50), 1, 3.5, (128, 0, 250), 2)
             cv2.imshow("output", output)
-
-        cv2.imshow("Frame", frame)
         if cv2.waitKey(1) & 0xFF == 27:  # Presiona 'ESC' para salir
             break
 
