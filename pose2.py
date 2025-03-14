@@ -3,90 +3,105 @@ import mediapipe as mp
 import numpy as np
 
 mp_drawing = mp.solutions.drawing_utils
-mp_drawing_styles = mp.solutions.drawing_styles
 mp_pose = mp.solutions.pose
 
-def distanceCalculate(p1, p2):
-    """p1 y p2 en formato de tuplas (x1, y1) y (x2, y2)"""
-    dis = ((p2[0] - p1[0]) ** 2 + (p2[1] - p1[1]) ** 2) ** 0.5
-    return dis
+def calculate_angle(a, b, c):
+    """Calcula el ángulo entre tres puntos."""
+    a = np.array(a)
+    b = np.array(b)
+    c = np.array(c)
 
-jumpStart = 0
+    ab = a - b
+    bc = c - b
+
+    cosine_angle = np.dot(ab, bc) / (np.linalg.norm(ab) * np.linalg.norm(bc))
+    angle = np.arccos(np.clip(cosine_angle, -1.0, 1.0))
+
+    return np.degrees(angle)
+
+jumpStart = False
 jumpCount = 0
 
-# Webcam input:
 cap = cv2.VideoCapture(0)
-with mp_pose.Pose(
-    min_detection_confidence=0.5,
-    min_tracking_confidence=0.5) as pose:
-    
+with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as pose:
     while cap.isOpened():
         success, image = cap.read()
         if not success:
-            print("Ignoring empty camera frame.")
             continue
 
-        # Convertimos la imagen a RGB (Mejora el procesamiento con MediaPipe)
         image.flags.writeable = False
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         results = pose.process(image)
 
-        # Convertimos de nuevo a BGR para OpenCV
         image.flags.writeable = True
         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
         image_height, image_width, _ = image.shape
 
         if results.pose_landmarks:
-            # Obtener puntos clave de las caderas y rodillas
-            leftHip = (int(results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_HIP].x * image_width),
-                       int(results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_HIP].y * image_height))
-            rightHip = (int(results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_HIP].x * image_width),
-                        int(results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_HIP].y * image_height))
-            leftKnee = (int(results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_KNEE].x * image_width),
-                        int(results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_KNEE].y * image_height))
-            rightKnee = (int(results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_KNEE].x * image_width),
-                         int(results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_KNEE].y * image_height))
+            landmarks = results.pose_landmarks.landmark
 
-            # Dibujar puntos clave en la imagen
-            cv2.circle(image, leftHip, 10, (0, 255, 255), -1)
-            cv2.circle(image, rightHip, 10, (0, 255, 255), -1)
-            cv2.circle(image, leftKnee, 10, (0, 255, 255), -1)
-            cv2.circle(image, rightKnee, 10, (0, 255, 255), -1)
+            # Puntos de las piernas
+            leftHip = (landmarks[mp_pose.PoseLandmark.LEFT_HIP].x * image_width,
+                       landmarks[mp_pose.PoseLandmark.LEFT_HIP].y * image_height)
+            rightHip = (landmarks[mp_pose.PoseLandmark.RIGHT_HIP].x * image_width,
+                        landmarks[mp_pose.PoseLandmark.RIGHT_HIP].y * image_height)
+            leftKnee = (landmarks[mp_pose.PoseLandmark.LEFT_KNEE].x * image_width,
+                        landmarks[mp_pose.PoseLandmark.LEFT_KNEE].y * image_height)
+            rightKnee = (landmarks[mp_pose.PoseLandmark.RIGHT_KNEE].x * image_width,
+                         landmarks[mp_pose.PoseLandmark.RIGHT_KNEE].y * image_height)
+            leftAnkle = (landmarks[mp_pose.PoseLandmark.LEFT_ANKLE].x * image_width,
+                         landmarks[mp_pose.PoseLandmark.LEFT_ANKLE].y * image_height)
+            rightAnkle = (landmarks[mp_pose.PoseLandmark.RIGHT_ANKLE].x * image_width,
+                          landmarks[mp_pose.PoseLandmark.RIGHT_ANKLE].y * image_height)
 
-            # Calcular la distancia entre las caderas y las rodillas
-            hipDistance = distanceCalculate(leftHip, rightHip)
-            kneeDistance = distanceCalculate(leftKnee, rightKnee)
+            # Puntos de los brazos
+            leftShoulder = (landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER].x * image_width,
+                            landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER].y * image_height)
+            rightShoulder = (landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER].x * image_width,
+                             landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER].y * image_height)
+            leftElbow = (landmarks[mp_pose.PoseLandmark.LEFT_ELBOW].x * image_width,
+                         landmarks[mp_pose.PoseLandmark.LEFT_ELBOW].y * image_height)
+            rightElbow = (landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW].x * image_width,
+                          landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW].y * image_height)
+            leftWrist = (landmarks[mp_pose.PoseLandmark.LEFT_WRIST].x * image_width,
+                         landmarks[mp_pose.PoseLandmark.LEFT_WRIST].y * image_height)
+            rightWrist = (landmarks[mp_pose.PoseLandmark.RIGHT_WRIST].x * image_width,
+                          landmarks[mp_pose.PoseLandmark.RIGHT_WRIST].y * image_height)
 
-            # Detectar cuando las piernas están suficientemente abiertas
-            if kneeDistance > 200:  # Umbral para considerar que las piernas están abiertas
-                jumpStart = 1
-            elif jumpStart and kneeDistance < 100:  # Cuando las piernas se cierran de nuevo
+            # Calcular ángulos
+            leftLegAngle = calculate_angle(leftHip, leftKnee, leftAnkle)
+            rightLegAngle = calculate_angle(rightHip, rightKnee, rightAnkle)
+            leftArmAngle = calculate_angle(leftShoulder, leftElbow, leftWrist)
+            rightArmAngle = calculate_angle(rightShoulder, rightElbow, rightWrist)
+
+            # Imprimir los ángulos en consola para depuración
+            print(f"Pierna Izq: {leftLegAngle:.2f}, Pierna Der: {rightLegAngle:.2f}, "
+                  f"Brazo Izq: {leftArmAngle:.2f}, Brazo Der: {rightArmAngle:.2f}")
+
+            # Condiciones ajustadas para detectar el salto
+            legs_open = leftLegAngle < 165 or rightLegAngle < 165
+            arms_up = leftArmAngle > 145 or rightArmAngle > 145
+
+            if legs_open and arms_up:
+                jumpStart = True
+            elif jumpStart and not legs_open and not arms_up:
                 jumpCount += 1
-                jumpStart = 0
+                jumpStart = False
+                print("Salto contado:", jumpCount)
 
-            print("Jump Count:", jumpCount)
+            # Mostrar el contador en la pantalla
+            cv2.rectangle(image, (20, 20), (200, 80), (0, 0, 0), -1)
+            cv2.putText(image, f"Saltos: {jumpCount}", (30, 60), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
-            # Mostrar el contador de saltos en la imagen
-            font = cv2.FONT_HERSHEY_SIMPLEX
-            org = (50, 50)
-            fontScale = 1
-            color = (255, 0, 0)
-            thickness = 2
-            image = cv2.putText(image, str(jumpCount), org, font, fontScale, color, thickness, cv2.LINE_AA)
-
-            # Dibujar los landmarks completos
+            # Dibujar los landmarks
             mp_drawing.draw_landmarks(
-                image,
-                results.pose_landmarks,
-                mp_pose.POSE_CONNECTIONS,
-                landmark_drawing_spec=mp_drawing_styles.get_default_pose_landmarks_style())
+                image, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
 
-        # Mostrar la imagen con los landmarks
-        cv2.imshow('MediaPipe Pose', cv2.flip(image, 1))
+        cv2.imshow('Jump Counter', cv2.flip(image, 1))
         if cv2.waitKey(5) & 0xFF == 27:  # Presionar 'Esc' para salir
             break
 
 cap.release()
 cv2.destroyAllWindows()
-
 
