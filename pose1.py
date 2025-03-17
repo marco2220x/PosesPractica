@@ -1,10 +1,11 @@
 import cv2
 import mediapipe as mp
 import numpy as np
+import sys
 
 mp_drawing = mp.solutions.drawing_utils
 mp_pose = mp.solutions.pose
-# Colocar todo en una función 
+
 def calculate_angle(a, b, c):
     a = np.array(a)  # Primer punto (hombro)
     b = np.array(b)  # Punto central (codo)
@@ -18,9 +19,10 @@ def calculate_angle(a, b, c):
         
     return angle
 
-def contar_pushups():
+def contar_pushups(target_series, target_reps):
     # Variables de estado
     pushup_count = 0
+    series_count = 0
     pushup_phase = "up"
     ANGLE_MIN = 90  # Ángulo mínimo para considerar posición baja
     ANGLE_MAX = 160  # Ángulo máximo para considerar posición alta
@@ -70,8 +72,19 @@ def contar_pushups():
                 else:
                     pushup_phase = "up"  # Reiniciar fase si no está en posición horizontal
                 
+                # Verificar si se completó una serie
+                if pushup_count >= target_reps:
+                    series_count += 1
+                    pushup_count = 0  # Reiniciar contador de repeticiones
+                    
+                    # Verificar si se completaron todas las series
+                    if series_count >= target_series:
+                        break
+                
                 # Visualización
-                cv2.putText(image, f"Conteo: {pushup_count}", (10, 30),
+                cv2.putText(image, f"Reps: {pushup_count}/{target_reps}", (10, 30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                cv2.putText(image, f"Series: {series_count}/{target_series}", (10, 70),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
                 cv2.putText(image, f"Posicion: {'Horizontal' if is_horizontal else 'No horizontal'}", (10, 110),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
@@ -86,8 +99,12 @@ def contar_pushups():
 
     cap.release()
     cv2.destroyAllWindows()
-    return pushup_count  # Retorna el conteo final de push ups
 
-
-# conteo_final = contar_pushups()
-# print(f"Total de push ups realizados: {conteo_final}")
+if __name__ == "__main__":
+    if len(sys.argv) < 3:
+        print("Uso: python pose1.py <series> <reps>")
+        exit(1)
+    
+    series = int(sys.argv[1])
+    reps = int(sys.argv[2])
+    contar_pushups(series, reps)
