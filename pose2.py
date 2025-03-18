@@ -2,6 +2,17 @@ import cv2
 import mediapipe as mp
 import numpy as np
 
+def draw_text(image, text, position, font_scale=0.8, text_color=(255, 255, 255), bg_color=(0, 165, 255), border_color=(255, 255, 255)):
+    """Dibuja un texto con fondo y contorno para mejor visibilidad."""
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    thickness = 2
+    (text_width, text_height), _ = cv2.getTextSize(text, font, font_scale, thickness)
+    x, y = position
+    
+    cv2.rectangle(image, (x - 6, y - text_height - 6), (x + text_width + 6, y + 6), border_color, -1)
+    cv2.rectangle(image, (x - 5, y - text_height - 5), (x + text_width + 5, y + 5), bg_color, -1)
+    cv2.putText(image, text, (x, y), font, font_scale, text_color, thickness, cv2.LINE_AA)
+
 def calculate_angle(a, b):
     a = np.array(a)  # Punto A (rodilla)
     b = np.array(b)  # Punto B (tobillo)
@@ -66,6 +77,8 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
         results = pose.process(image)
         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
+        image_height, image_width, _ = image.shape
+
         if results.pose_landmarks:
             landmarks = results.pose_landmarks.landmark
             image_height, image_width, _ = image.shape
@@ -106,24 +119,21 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
 
                 # Llamada a la función de salto
                 jump_count = detectar_salto(left_leg_angle, right_leg_angle, codo_izq_arriba, codo_der_arriba)
-
+            else:
+                draw_text(image, "Debes realizar el ejercicio en postura de frente", (50, 130), font_scale=0.5, text_color=(255, 255, 255), bg_color=(0, 0, 255))
             # Mostrar siempre el contador de saltos
-            cv2.putText(image, f'Saltos: {jump_count}', (50, 50),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2, cv2.LINE_AA)
+            draw_text(image, f'Saltos: {jump_count}', (50, 50), font_scale=1, text_color=(255, 255, 255), bg_color=(0, 165, 255))
 
             if not cuerpo_completo_detectado:
-                cv2.putText(image, "Cuerpo incompleto detectado", (50, 80),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2, cv2.LINE_AA)
+                draw_text(image, "Cuerpo incompleto detectado", (50, 90), font_scale=0.8, text_color=(255, 255, 255), bg_color=(0, 0, 255))
 
             # Dibujar los landmarks
             mp_drawing.draw_landmarks(image, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
 
         else:
-            # Mostrar el contador de saltos aunque no se detecte el cuerpo
-            cv2.putText(image, f'Saltos: {jump_count}', (50, 50),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2, cv2.LINE_AA)
-            cv2.putText(image, "Cuerpo no detectado", (50, 80),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2, cv2.LINE_AA)
+            draw_text(image, f'Saltos: {jump_count}', (50, 50), font_scale=1, text_color=(255, 255, 255), bg_color=(0, 165, 255))
+            draw_text(image, "Cuerpo no detectado", (50, 90), font_scale=0.8, text_color=(255, 255, 255), bg_color=(0, 0, 255))
+
 
         cv2.imshow('Salto de tijera', image)
         
