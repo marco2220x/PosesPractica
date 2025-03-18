@@ -61,7 +61,7 @@ jump_counter_called = False
 def main():
     global current_screen, selected_exercise, selected_mode, selection_start_time
 
-    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+    cap = cv2.VideoCapture(0)
     ejercicios = ["Sentadillas", "Lagartijas", "Saltos"]
     modos = list(WORKOUT_MODES.keys())
 
@@ -103,16 +103,24 @@ def main():
                                     series = WORKOUT_MODES[modo]["series"]
                                     reps = WORKOUT_MODES[modo]["reps"]
                                     if selected_exercise == 0:
-                                        print('ejercicio no disp.')
+                                        cv2.destroyAllWindows()
+                                        cap.release()
+                                        os.system('python pose3.py')
+                                        current_screen = 1
+                                        cap = cv2.VideoCapture(0)
                                     elif selected_exercise == 1:
                                         cv2.destroyAllWindows()
                                         cap.release()
                                         pose1.contar_pushups(series, reps)
                                         # Reiniciar la interfaz después del ejercicio
-                                        cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-                                        pose1.contar_pushups(series, reps)    
+                                        current_screen = 1
+                                        cap = cv2.VideoCapture(0)
                                     elif selected_exercise == 2:
-                                        print('ejercicio no disp.')
+                                        cv2.destroyAllWindows()
+                                        cap.release()
+                                        os.system('python pose2.py')
+                                        current_screen = 1
+                                        cap = cv2.VideoCapture(0)
                  
                             else:
                                 selected_mode = i
