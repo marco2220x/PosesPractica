@@ -1,6 +1,8 @@
+# Saltos de tijera
 import cv2
 import mediapipe as mp
 import numpy as np
+import sys
 
 def draw_text(image, text, position, font_scale=0.8, text_color=(255, 255, 255), bg_color=(0, 165, 255), border_color=(255, 255, 255)):
     """Dibuja un texto con fondo y contorno para mejor visibilidad."""
@@ -28,118 +30,124 @@ def calculate_angle(a, b):
     
     return np.degrees(angle)  # Convertir a grados
 
-# Umbrales
-umbral_flexion = 160  # Grado mínimo para flexión
-umbral_extension = 170  # Grado mínimo para contar un salto
-umbral_codo = 0.02  # Diferencia mínima entre codo y hombro en Y para verificar si está arriba
+def contar_saltos(target_series, target_reps):
+    # Umbrales
+    umbral_flexion = 160  # Grado mínimo para flexión
+    umbral_extension = 170  # Grado mínimo para contar un salto
+    umbral_codo = 0.02  # Diferencia mínima entre codo y hombro en Y para verificar si está arriba
 
-# Variables de estado
-en_salto = False  
-contador_saltos = 0  
-brazos_arriba = False  
-cuerpo_completo_detectado = False  # Nuevo estado
+    # Variables de estado
+    en_salto = False  
+    contador_saltos = 0  
+    brazos_arriba = False  
+    cuerpo_completo_detectado = False  # Nuevo estado
+    series_completadas = 0
 
-# Función para detectar el salto con brazos arriba
-def detectar_salto(angulo_izq, angulo_der, codo_izq_arriba, codo_der_arriba):
-    global en_salto, contador_saltos, brazos_arriba
+    # Configuración de MediaPipe
+    mp_drawing = mp.solutions.drawing_utils
+    mp_pose = mp.solutions.pose
 
-    # Verifica si los codos están arriba del hombro
-    if codo_izq_arriba and codo_der_arriba:
-        brazos_arriba = True
-    else:
-        brazos_arriba = False
+    cap = cv2.VideoCapture(0)
+    if not cap.isOpened():
+        print("Error: No se pudo abrir la cámara.")
+        return
 
-    # Se detecta la flexión si ambas piernas se doblan
-    if angulo_izq < umbral_flexion and angulo_der < umbral_flexion and brazos_arriba:
-        en_salto = True  
+    with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as pose:
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
 
-    # Se cuenta el salto si ambas piernas se extienden después de flexión y brazos bajan
-    if en_salto and angulo_izq > umbral_extension and angulo_der > umbral_extension and not brazos_arriba:
-        contador_saltos += 1  
-        en_salto = False  
+            image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            results = pose.process(image)
+            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
-    return contador_saltos
-
-# Configuración de MediaPipe
-mp_drawing = mp.solutions.drawing_utils
-mp_pose = mp.solutions.pose
-
-cap = cv2.VideoCapture(0)
-jump_count = 0
-
-with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as pose:
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
-
-        image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        results = pose.process(image)
-        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-
-        image_height, image_width, _ = image.shape
-
-        if results.pose_landmarks:
-            landmarks = results.pose_landmarks.landmark
             image_height, image_width, _ = image.shape
-            
-            # Verificar si el cuerpo completo está visible (piernas, cadera, torso y cabeza)
-            puntos_clave = [
-                mp_pose.PoseLandmark.NOSE, mp_pose.PoseLandmark.LEFT_SHOULDER, mp_pose.PoseLandmark.RIGHT_SHOULDER,
-                mp_pose.PoseLandmark.LEFT_HIP, mp_pose.PoseLandmark.RIGHT_HIP,
-                mp_pose.PoseLandmark.LEFT_KNEE, mp_pose.PoseLandmark.RIGHT_KNEE,
-                mp_pose.PoseLandmark.LEFT_ANKLE, mp_pose.PoseLandmark.RIGHT_ANKLE
-            ]
-            cuerpo_completo_detectado = all(0 <= landmarks[p].visibility <= 1 and landmarks[p].visibility > 0.6 for p in puntos_clave)
 
-            if cuerpo_completo_detectado:
-                # Coordenadas de piernas
-                left_knee = (landmarks[mp_pose.PoseLandmark.LEFT_KNEE].x * image_width, 
-                             landmarks[mp_pose.PoseLandmark.LEFT_KNEE].y * image_height)
-                left_ankle = (landmarks[mp_pose.PoseLandmark.LEFT_ANKLE].x * image_width, 
-                              landmarks[mp_pose.PoseLandmark.LEFT_ANKLE].y * image_height)
-                right_knee = (landmarks[mp_pose.PoseLandmark.RIGHT_KNEE].x * image_width, 
-                              landmarks[mp_pose.PoseLandmark.RIGHT_KNEE].y * image_height)
-                right_ankle = (landmarks[mp_pose.PoseLandmark.RIGHT_ANKLE].x * image_width, 
-                               landmarks[mp_pose.PoseLandmark.RIGHT_ANKLE].y * image_height)
+            if results.pose_landmarks:
+                landmarks = results.pose_landmarks.landmark
+                
+                # Verificar si el cuerpo completo está visible
+                puntos_clave = [
+                    mp_pose.PoseLandmark.NOSE, mp_pose.PoseLandmark.LEFT_SHOULDER, mp_pose.PoseLandmark.RIGHT_SHOULDER,
+                    mp_pose.PoseLandmark.LEFT_HIP, mp_pose.PoseLandmark.RIGHT_HIP,
+                    mp_pose.PoseLandmark.LEFT_KNEE, mp_pose.PoseLandmark.RIGHT_KNEE,
+                    mp_pose.PoseLandmark.LEFT_ANKLE, mp_pose.PoseLandmark.RIGHT_ANKLE
+                ]
+                cuerpo_completo_detectado = all(0 <= landmarks[p].visibility <= 1 and landmarks[p].visibility > 0.6 for p in puntos_clave)
 
-                # Cálculo de ángulos de piernas
-                left_leg_angle = calculate_angle(left_knee, left_ankle)
-                right_leg_angle = calculate_angle(right_knee, right_ankle)
+                if cuerpo_completo_detectado:
+                    # Coordenadas de piernas
+                    left_knee = (landmarks[mp_pose.PoseLandmark.LEFT_KNEE].x * image_width, 
+                                 landmarks[mp_pose.PoseLandmark.LEFT_KNEE].y * image_height)
+                    left_ankle = (landmarks[mp_pose.PoseLandmark.LEFT_ANKLE].x * image_width, 
+                                  landmarks[mp_pose.PoseLandmark.LEFT_ANKLE].y * image_height)
+                    right_knee = (landmarks[mp_pose.PoseLandmark.RIGHT_KNEE].x * image_width, 
+                                  landmarks[mp_pose.PoseLandmark.RIGHT_KNEE].y * image_height)
+                    right_ankle = (landmarks[mp_pose.PoseLandmark.RIGHT_ANKLE].x * image_width, 
+                                   landmarks[mp_pose.PoseLandmark.RIGHT_ANKLE].y * image_height)
 
-                # Coordenadas de brazos
-                left_elbow_y = landmarks[mp_pose.PoseLandmark.LEFT_ELBOW].y
-                left_shoulder_y = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER].y
-                right_elbow_y = landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW].y
-                right_shoulder_y = landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER].y
+                    # Cálculo de ángulos de piernas
+                    left_leg_angle = calculate_angle(left_knee, left_ankle)
+                    right_leg_angle = calculate_angle(right_knee, right_ankle)
 
-                # Verificación de codos arriba del hombro
-                codo_izq_arriba = left_elbow_y < left_shoulder_y - umbral_codo
-                codo_der_arriba = right_elbow_y < right_shoulder_y - umbral_codo
+                    # Coordenadas de brazos
+                    left_elbow_y = landmarks[mp_pose.PoseLandmark.LEFT_ELBOW].y
+                    left_shoulder_y = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER].y
+                    right_elbow_y = landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW].y
+                    right_shoulder_y = landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER].y
 
-                # Llamada a la función de salto
-                jump_count = detectar_salto(left_leg_angle, right_leg_angle, codo_izq_arriba, codo_der_arriba)
+                    # Verificación de codos arriba del hombro
+                    codo_izq_arriba = left_elbow_y < left_shoulder_y - umbral_codo
+                    codo_der_arriba = right_elbow_y < right_shoulder_y - umbral_codo
+
+                    # Lógica para contar saltos
+                    if codo_izq_arriba and codo_der_arriba:
+                        brazos_arriba = True
+                    else:
+                        brazos_arriba = False
+
+                    if left_leg_angle < umbral_flexion and right_leg_angle < umbral_flexion and brazos_arriba:
+                        en_salto = True  
+
+                    if en_salto and left_leg_angle > umbral_extension and right_leg_angle > umbral_extension and not brazos_arriba:
+                        contador_saltos += 1  
+                        en_salto = False  
+
+                    # Verificar si se completó una serie
+                    if contador_saltos >= target_reps:
+                        series_completadas += 1
+                        contador_saltos = 0  # Reiniciar contador de saltos
+
+                        # Verificar si se completaron todas las series
+                        if series_completadas >= target_series:
+                            break
+
+                # Visualización
+                draw_text(image, f"Saltos: {contador_saltos}/{target_reps}", (50, 50))
+                draw_text(image, f"Series: {series_completadas}/{target_series}", (50, 100))
+
+                if not cuerpo_completo_detectado:
+                    draw_text(image, "Cuerpo incompleto detectado", (50, 150), font_scale=0.8, text_color=(255, 255, 255), bg_color=(0, 0, 255))
+
+                # Dibujar los landmarks
+                mp_drawing.draw_landmarks(image, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
+
             else:
-                draw_text(image, "Debes realizar el ejercicio en postura de frente", (50, 130), font_scale=0.5, text_color=(255, 255, 255), bg_color=(0, 0, 255))
-            # Mostrar siempre el contador de saltos
-            draw_text(image, f'Saltos: {jump_count}', (50, 50), font_scale=1, text_color=(255, 255, 255), bg_color=(0, 165, 255))
+                draw_text(image, "Cuerpo no detectado", (50, 150), font_scale=0.8, text_color=(255, 255, 255), bg_color=(0, 0, 255))
 
-            if not cuerpo_completo_detectado:
-                draw_text(image, "Cuerpo incompleto detectado", (50, 90), font_scale=0.8, text_color=(255, 255, 255), bg_color=(0, 0, 255))
+            cv2.imshow('Saltos de Tijera', image)
+            if cv2.waitKey(10) & 0xFF == ord('q'):
+                break
 
-            # Dibujar los landmarks
-            mp_drawing.draw_landmarks(image, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
+    cap.release()
+    cv2.destroyAllWindows()
 
-        else:
-            draw_text(image, f'Saltos: {jump_count}', (50, 50), font_scale=1, text_color=(255, 255, 255), bg_color=(0, 165, 255))
-            draw_text(image, "Cuerpo no detectado", (50, 90), font_scale=0.8, text_color=(255, 255, 255), bg_color=(0, 0, 255))
-
-
-        cv2.imshow('Salto de tijera', image)
-        
-        if cv2.waitKey(10) & 0xFF == ord('q'):
-            break
-
-cap.release()
-cv2.destroyAllWindows()
-
+if __name__ == "__main__":
+    if len(sys.argv) < 3:
+        print("Uso: python pose1.py <series> <reps>")
+        exit(1)
+    
+    series = int(sys.argv[1])
+    reps = int(sys.argv[2])
+    contar_saltos(series, reps)
