@@ -29,7 +29,6 @@ def countSquats(target_series, target_reps):
         while True:
             ret, frame = cap.read()
             if not ret:
-                print("Error al leer de la cámara. Verifica la conexión.")
                 break
             
             height, width, _ = frame.shape
@@ -91,10 +90,8 @@ def countSquats(target_series, target_reps):
                     if count >= target_reps:
                         series_count += 1
                         count = 0
-                        print(f"Serie completada. Total de series: {series_count}")
                     
                     if series_count >= target_series:
-                        print("¡Entrenamiento finalizado!")
                         break
 
                 except Exception as e:
