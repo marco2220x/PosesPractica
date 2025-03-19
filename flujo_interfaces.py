@@ -4,7 +4,7 @@ import mediapipe as mp
 import math
 import time
 import os
-import pose1
+import pose1, pose2, pose3
 
 mp_hands = mp.solutions.hands
 hands = mp_hands.Hands(min_detection_confidence=0.7, min_tracking_confidence=0.7)
@@ -61,7 +61,7 @@ jump_counter_called = False
 def main():
     global current_screen, selected_exercise, selected_mode, selection_start_time
 
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     ejercicios = ["Sentadillas", "Lagartijas", "Saltos"]
     modos = list(WORKOUT_MODES.keys())
 
@@ -105,23 +105,23 @@ def main():
                                     if selected_exercise == 0:
                                         cv2.destroyAllWindows()
                                         cap.release()
-                                        os.system('python pose3.py')
-                                        current_screen = 1
-                                        cap = cv2.VideoCapture(0)
+                                        pose3.contar_sentadillas(series, reps)
+                                        # Reiniciar la interfaz después del ejercicio
+                                        cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
                                     elif selected_exercise == 1:
                                         cv2.destroyAllWindows()
                                         cap.release()
                                         pose1.contar_pushups(series, reps)
                                         # Reiniciar la interfaz después del ejercicio
-                                        current_screen = 1
-                                        cap = cv2.VideoCapture(0)
+                                        cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+                                        pose1.contar_pushups(series, reps)    
                                     elif selected_exercise == 2:
                                         cv2.destroyAllWindows()
                                         cap.release()
-                                        os.system('python pose2.py')
-                                        current_screen = 1
-                                        cap = cv2.VideoCapture(0)
-                 
+                                        # Reiniciar la interfaz después del ejercicio
+                                        cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+                                        pose2.contar_saltos(series, reps)
+
                             else:
                                 selected_mode = i
                                 selection_start_time = time.time()
