@@ -105,7 +105,7 @@ def main():
                                     if selected_exercise == 0:
                                         cv2.destroyAllWindows()
                                         cap.release()
-                                        pose3.contar_sentadillas(series, reps)
+                                        pose3.countSquats(series, reps)
                                         # Reiniciar la interfaz después del ejercicio
                                         cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
                                     elif selected_exercise == 1:
