@@ -2,7 +2,27 @@ import cv2
 import mediapipe as mp
 import numpy as np
 import sys
-import os  # Para manejar rutas de archivos
+import os
+import pyttsx3
+import threading
+import time
+
+# Configuración de texto a voz
+engine = pyttsx3.init()
+engine.setProperty('rate', 150)  # Velocidad del habla
+last_audio_time = 0
+audio_cooldown = 2  # Segundos entre mensajes de audio para evitar saturación
+
+def speak(text):
+    """Función para convertir texto a voz con cooldown"""
+    global last_audio_time
+    current_time = time.time()
+    
+    if current_time - last_audio_time > audio_cooldown:
+        last_audio_time = current_time
+        # Ejecutar en un hilo para no bloquear la interfaz
+        threading.Thread(target=lambda: engine.say(text)).start()
+        threading.Thread(target=lambda: engine.runAndWait()).start()
 
 mp_drawing = mp.solutions.drawing_utils
 mp_pose = mp.solutions.pose
@@ -39,11 +59,13 @@ def contar_pushups(target_series, target_reps):
     ANGLE_MIN = 90  # Ángulo mínimo para considerar posición baja
     ANGLE_MAX = 160  # Ángulo máximo para considerar posición alta
     HORIZONTAL_THRESHOLD = 0.3  # Umbral para considerar posición horizontal
-
-    # Crear una carpeta para guardar las capturas de pantalla
-    if not os.path.exists("capturas_flexiones"):
-        os.makedirs("capturas_flexiones")
-
+    series_completed = False
+    workout_completed = False
+    last_horizontal_state = None
+    last_body_detected = True
+    
+    cv2.namedWindow('PushUp Counter', cv2.WINDOW_NORMAL)
+    
     cap = cv2.VideoCapture(0)
     with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as pose:
         while cap.isOpened():
@@ -78,34 +100,53 @@ def contar_pushups(target_series, target_reps):
                 hip_y = hip[1]
                 is_horizontal = abs(shoulder_y - hip_y) < HORIZONTAL_THRESHOLD
                 
+                # Retroalimentación auditiva para posición horizontal
+                if is_horizontal != last_horizontal_state:
+                    if is_horizontal:
+                        speak("Posición horizontal correcta")
+                    else:
+                        speak("Por favor, colócate en posición horizontal")
+                    last_horizontal_state = is_horizontal
+                
+                # Retroalimentación cuando se detecta el cuerpo después de no detectarlo
+                if not last_body_detected:
+                    speak("Cuerpo detectado")
+                    last_body_detected = True
+                
                 # Lógica para contar repeticiones solo si está en posición horizontal
-                if is_horizontal:
+                if is_horizontal and not workout_completed:
                     if angle > ANGLE_MAX and pushup_phase == "down":
-                        pushup_count += 1
                         pushup_phase = "up"
-                        
-                        # Dibujar todos los elementos antes de tomar la captura
-                        draw_text(image, f"Flexiones: {pushup_count}/{target_reps}", (50, 50))
-                        draw_text(image, f"Series: {series_count}/{target_series}", (50, 100))
-                        draw_text(image, "Horizontal", (50, 150), font_scale=0.8, text_color=(255, 255, 255), bg_color=(0, 255, 0))
-                        mp_drawing.draw_landmarks(image, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
-                        
-                        # Tomar una captura de pantalla cuando se completa una repetición
-                        cv2.imwrite(f"capturas_flexiones/flexion_{pushup_count}.jpg", image)
-                        print(f"Captura de pantalla guardada: flexion_{pushup_count}.jpg")
+                        # Solo incrementar el contador si no hemos completado la serie
+                        if not series_completed:
+                            pushup_count += 1
+                            speak(f"Flexión {pushup_count}")
+                            
+                            # Verificar si se completó la serie
+                            if pushup_count == target_reps:
+                                series_completed = True
+                                speak("¡Serie completada! Descansa antes de continuar")
+                                draw_text(image, "Serie completada!", (image.shape[1]//2 - 100, 200), 
+                                         font_scale=1.2, text_color=(0, 0, 0), bg_color=(0, 255, 0))
+                                
                     elif angle < ANGLE_MIN and pushup_phase == "up":
                         pushup_phase = "down"
+                        # Si la serie está completada y el usuario baja, comenzar nueva serie
+                        if series_completed and pushup_phase == "down":
+                            series_count += 1
+                            pushup_count = 0
+                            series_completed = False
+                            
+                            if series_count >= target_series:
+                                workout_completed = True
+                                speak("¡Entrenamiento completado! Buen trabajo")
                 else:
                     pushup_phase = "up"  # Reiniciar fase si no está en posición horizontal
                 
-                # Verificar si se completó una serie
-                if pushup_count >= target_reps:
-                    series_count += 1
-                    pushup_count = 0  # Reiniciar contador de repeticiones
-                    
-                    # Verificar si se completaron todas las series
-                    if series_count >= target_series:
-                        break
+                # Verificar si se completaron todas las series
+                if series_count >= target_series:
+                    draw_text(image, "Todas las series completadas!", (image.shape[1]//2 - 150, 200), 
+                             font_scale=1.2, text_color=(0, 0, 0), bg_color=(0, 255, 0))
                 
                 # Mostrar mensaje de posición horizontal
                 if is_horizontal:
@@ -118,17 +159,24 @@ def contar_pushups(target_series, target_reps):
             else:
                 # Si no se detectan landmarks, mostrar mensaje de error
                 draw_text(image, "Cuerpo no detectado", (50, 150), font_scale=0.8, text_color=(255, 255, 255), bg_color=(255, 0, 0))
+                if last_body_detected:
+                    speak("Por favor, colócate frente a la cámara")
+                    last_body_detected = False
 
             # Mostrar siempre el conteo de flexiones y series
             draw_text(image, f"Flexiones: {pushup_count}/{target_reps}", (50, 50))
             draw_text(image, f"Series: {series_count}/{target_series}", (50, 100))
 
             cv2.imshow('PushUp Counter', image)
-            if cv2.waitKey(5) & 0xFF == 27:
-                break
+            if cv2.waitKey(5) & 0xFF == 27:  # ESC
+                # Limpiar completamente antes de salir
+                cap.release()
+                cv2.destroyWindow('PushUp Counter')
+                return True  # Salir de la función inmediatamente
 
     cap.release()
     cv2.destroyAllWindows()
+    return False
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
