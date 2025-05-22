@@ -3,14 +3,31 @@ import mediapipe as mp
 import numpy as np
 import sys
 from math import acos, degrees
+import pyttsx3
+import threading
+import time
 
-def message(image, text, position, font_scale=0.8, text_color=(255, 255, 255), bg_color=(0, 165, 255), border_color=(255, 255, 255)):
-    """Dibuja un texto con fondo y contorno para mejor visibilidad."""
+# Configuración de texto a voz
+engine = pyttsx3.init()
+engine.setProperty('rate', 150)
+last_audio_time = 0
+audio_cooldown = 2  # Segundos
+
+def speak(text):
+    """Función para convertir texto a voz con cooldown"""
+    global last_audio_time
+    current_time = time.time()
+    if current_time - last_audio_time > audio_cooldown:
+        last_audio_time = current_time
+        threading.Thread(target=lambda: engine.say(text)).start()
+        threading.Thread(target=lambda: engine.runAndWait()).start()
+
+def draw_text(image, text, position, font_scale=0.8, text_color=(255, 255, 255), bg_color=(0, 165, 255), border_color=(255, 255, 255)):
+    """Dibuja un texto con fondo y contorno"""
     font = cv2.FONT_HERSHEY_SIMPLEX
     thickness = 2
     (text_width, text_height), _ = cv2.getTextSize(text, font, font_scale, thickness)
     x, y = position
-
     cv2.rectangle(image, (x - 6, y - text_height - 6), (x + text_width + 6, y + 6), border_color, -1)
     cv2.rectangle(image, (x - 5, y - text_height - 5), (x + text_width + 5, y + 5), bg_color, -1)
     cv2.putText(image, text, (x, y), font, font_scale, text_color, thickness, cv2.LINE_AA)
@@ -30,17 +47,19 @@ def countSquats(target_series, target_reps):
             ret, frame = cap.read()
             if not ret:
                 break
-            
+
+            image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            results = pose.process(image)
+            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
             height, width, _ = frame.shape
-            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            results = pose.process(frame_rgb)
 
             if results.pose_landmarks:
                 try:
                     landmarks = results.pose_landmarks.landmark
                     required_landmarks = [24, 26, 28]
-                    
+
                     if all(landmarks[i].visibility > 0.5 for i in required_landmarks):
+                        speak("Posición correcta")
                         x1, y1 = int(landmarks[24].x * width), int(landmarks[24].y * height)
                         x2, y2 = int(landmarks[26].x * width), int(landmarks[26].y * height)
                         x3, y3 = int(landmarks[28].x * width), int(landmarks[28].y * height)
@@ -81,16 +100,17 @@ def countSquats(target_series, target_reps):
                         cv2.putText(output, str(int(angle)), (x2 + 30, y2), 1, 1.5, (128, 0, 250), 2)
                         cv2.putText(output, str(count), (10, 50), 1, 3.5, (128, 0, 250), 2)
 
-                        # Dibujar landmarks
                         mp_drawing.draw_landmarks(output, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
+
                     else:
-                        message(frame, "Posicionate de forma correcta.", (50, 130), font_scale=0.5, bg_color=(0, 0, 255))
+                        draw_text(frame, "Posicionate de forma correcta.", (50, 130), font_scale=0.5, bg_color=(0, 0, 255))
+                        speak("Posicionate de forma correcta")
                         output = frame.copy()
 
                     if count >= target_reps:
                         series_count += 1
                         count = 0
-                    
+
                     if series_count >= target_series:
                         break
 
@@ -99,6 +119,9 @@ def countSquats(target_series, target_reps):
                     output = frame.copy()
             else:
                 output = frame.copy()
+
+            draw_text(output, f"Lagartijas: {count}/{target_reps}", (50, 50))
+            draw_text(output, f"Series: {series_count}/{target_series}", (50, 100))
 
             cv2.imshow("Contador de Sentadillas", output)
             if cv2.waitKey(1) & 0xFF == 27:
@@ -111,7 +134,7 @@ if __name__ == "__main__":
     if len(sys.argv) < 3:
         print("Uso: python pose1.py <series> <reps>")
         exit(1)
-    
+
     series = int(sys.argv[1])
     reps = int(sys.argv[2])
     countSquats(series, reps)

@@ -3,6 +3,29 @@ import cv2
 import mediapipe as mp
 import numpy as np
 import sys
+import pyttsx3
+import threading
+import time
+
+# Configuración de texto a voz
+engine = pyttsx3.init()
+engine.setProperty('rate', 150)  # Velocidad del habla
+last_audio_time = 0
+audio_cooldown = 2  # Segundos entre mensajes de audio para evitar saturación
+
+def speak(text):
+    """Función para convertir texto a voz con cooldown"""
+    global last_audio_time
+    current_time = time.time()
+    
+    if current_time - last_audio_time > audio_cooldown:
+        last_audio_time = current_time
+        # Ejecutar en un hilo para no bloquear la interfaz
+        threading.Thread(target=lambda: engine.say(text)).start()
+        threading.Thread(target=lambda: engine.runAndWait()).start()
+
+mp_drawing = mp.solutions.drawing_utils
+mp_pose = mp.solutions.pose
 
 def draw_text(image, text, position, font_scale=0.8, text_color=(255, 255, 255), bg_color=(0, 165, 255), border_color=(255, 255, 255)):
     """Dibuja un texto con fondo y contorno para mejor visibilidad."""
@@ -135,7 +158,7 @@ def contar_saltos(target_series, target_reps):
 
             else:
                 draw_text(image, "Cuerpo no detectado", (50, 150), font_scale=0.8, text_color=(255, 255, 255), bg_color=(0, 0, 255))
-
+                speak("Cuerpo no detectado")
             cv2.imshow('Saltos de Tijera', image)
             if cv2.waitKey(10) & 0xFF == ord('q'):
                 break
