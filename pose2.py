@@ -120,7 +120,6 @@ def contar_saltos(target_series, target_reps):
             text_y = button_y + (button_h + text_height) // 2 - 5
             cv2.putText(frame, text, (text_x, text_y), font, font_scale, (255, 255, 255), thickness, cv2.LINE_AA)
 
-            # 💡 Agregamos aquí la detección del dedo índice
             hand_results = hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             if hand_results.multi_hand_landmarks:
                  for hand_landmarks, handedness in zip(hand_results.multi_hand_landmarks, hand_results.multi_handedness):
