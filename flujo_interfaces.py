@@ -188,13 +188,13 @@ def main():
                 elif current_screen == 1:  # Selección de ejercicio
                     for i, (ex_x, ex_y) in enumerate(POSICIONES["ejercicios"]):
                         if ex_x <= px <= ex_x + ANCHO_RECUADRO and ex_y <= py <= ex_y + ALTO_RECUADRO:
-                            select_index_sound = reproducir_audio("select", select_index_sound)
                             if selected_exercise == i:
                                 if time.time() - selection_start_time >= 2:
                                     current_screen = 2
                             else:
                                 selected_exercise = i
                                 selection_start_time = time.time()
+                                select_index_sound = reproducir_audio("select", select_index_sound)
 
                 elif current_screen == 2:  # Selección de modo
                     # Verificar selección de dificultad
