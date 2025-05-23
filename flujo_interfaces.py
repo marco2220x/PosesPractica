@@ -3,6 +3,8 @@ import mediapipe as mp
 import time
 import numpy as np
 import pose1, pose2, pose3
+import platform
+from audio_manage import reproducir_audio
 
 mp_hands = mp.solutions.hands
 hands = mp_hands.Hands(min_detection_confidence=0.7, min_tracking_confidence=0.7)
@@ -23,6 +25,7 @@ selection_start_time = None
 back_button_selected = False
 welcome_alpha = 1.0  # Transparencia del texto de bienvenida
 welcome_detected = False  # Si se ha detectado el gesto de saludo
+select_index_sound = 1
 
 # Diseño de interfaz
 COLORES = {
@@ -42,6 +45,9 @@ ALTO_BOTON_ATRAS = 50
 MARGEN_SUPERIOR = 100
 ESPACIADO = 20
 MARGEN_IZQUIERDO = 20
+
+
+
 
 def calcular_posiciones(num_opciones):
     """Calcula posiciones centradas verticalmente para las opciones"""
@@ -136,10 +142,14 @@ def detectar_saludo(hand_landmarks):
     return (fingers_extended[0] and not fingers_extended[1] and not fingers_extended[2] and fingers_extended[3])
 
 def main():
-    global current_screen, selected_exercise, selected_mode, selection_start_time, back_button_selected
+    global current_screen, selected_exercise, selected_mode, selection_start_time, back_button_selected, select_index_sound
     global welcome_alpha, welcome_detected
 
-    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+
+    if platform.system() == "Windows":
+        cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+    else:
+        cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
     ejercicios = ["Sentadillas", "Lagartijas", "Saltos"]
     modos = list(WORKOUT_MODES.keys())
 
@@ -178,6 +188,7 @@ def main():
                 elif current_screen == 1:  # Selección de ejercicio
                     for i, (ex_x, ex_y) in enumerate(POSICIONES["ejercicios"]):
                         if ex_x <= px <= ex_x + ANCHO_RECUADRO and ex_y <= py <= ex_y + ALTO_RECUADRO:
+                            select_index_sound = reproducir_audio("select", select_index_sound)
                             if selected_exercise == i:
                                 if time.time() - selection_start_time >= 2:
                                     current_screen = 2
