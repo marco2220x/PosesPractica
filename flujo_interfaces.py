@@ -210,24 +210,33 @@ def main():
                                     if selected_exercise == 0:
                                         cv2.destroyAllWindows()
                                         cap.release()
-                                        pose3.countSquats(series, reps)
+                                        should_return = pose3.countSquats(series, reps)
+                                        if should_return:
+                                            cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+                                            current_screen = 1  # ← Esto regresa al menú principal
+                                            continue  # ← Esto reinicia el ciclo principal
                                         cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
                                     elif selected_exercise == 1:
                                         cv2.destroyWindow('Entrenador Virtual')
+                                        cap.release()
                                         should_return = pose1.contar_pushups(series, reps)
                                         if should_return:
-                            # Volver a crear la ventana principal
-                                            cv2.namedWindow('Entrenador Virtual', cv2.WINDOW_NORMAL)
+                                            # Volver a crear la ventana principal
+                                            cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
                                             current_screen = 1  # Volver al menú principal
                                             continue
-                        # Si no se presionó ESC, continuar normalmente
-                                        cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-                                        current_screen = 1  # Volver al menú principal
+                                          
+  
                                     elif selected_exercise == 2:
                                         cv2.destroyAllWindows()
                                         cap.release()
-                                        pose2.contar_saltos(series, reps)
+                                        should_return = pose2.contar_saltos(series, reps)
+                                        if should_return:
+                                            cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+                                            current_screen = 1  # Volver al menú principal
+                                            continue  # Reiniciar el ciclo principal
                                         cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+                                        current_screen = 1
                             else:
                                 selected_mode = i
                                 selection_start_time = time.time()
