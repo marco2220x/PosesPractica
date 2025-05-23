@@ -7,11 +7,15 @@ import pyttsx3
 import threading
 import time
 
+
+
 # Configuración de texto a voz
 engine = pyttsx3.init()
 engine.setProperty('rate', 150)  # Velocidad del habla
 last_audio_time = 0
 audio_cooldown = 2  # Segundos entre mensajes de audio para evitar saturación
+
+
 
 def speak(text):
     """Función para convertir texto a voz con cooldown"""
@@ -26,6 +30,7 @@ def speak(text):
 
 mp_drawing = mp.solutions.drawing_utils
 mp_pose = mp.solutions.pose
+mp_hands = mp.solutions.hands
 
 def draw_text(image, text, position, font_scale=0.8, text_color=(255, 255, 255), bg_color=(0, 165, 255), border_color=(255, 255, 255)):
     """Dibuja un texto con fondo y contorno para mejor visibilidad."""
@@ -67,19 +72,76 @@ def contar_pushups(target_series, target_reps):
     cv2.namedWindow('PushUp Counter', cv2.WINDOW_NORMAL)
     
     cap = cv2.VideoCapture(0)
-    with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as pose:
-        while cap.isOpened():
-            success, image = cap.read()
-            if not success:
-                continue
+    with mp_pose.Pose(static_image_mode=False) as pose, mp_hands.Hands(static_image_mode=False, max_num_hands=1, min_detection_confidence=0.7) as hands:
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
 
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            height, width, _ = frame.shape
+
+            # Definir posición y tamaño del botón en la parte inferior izquierda
+            button_x, button_w = 10, 150
+            button_h = 50
+            button_y = height - button_h - 10  # 10 píxeles desde el borde inferior
+
+            overlay = frame.copy()
+            cv2.rectangle(overlay, (button_x, button_y), (button_x + button_w, button_y + button_h), (0, 255, 255), -1)  # Amarillo
+            alpha = 0.6  # Nivel de transparencia
+            cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
+
+            # Sombra (ligeramente desplazada)
+            shadow_offset = 5
+            shadow_color = (0, 100, 200)
+            cv2.rectangle(frame, 
+              (button_x + shadow_offset, button_y + shadow_offset), 
+              (button_x + button_w + shadow_offset, button_y + button_h + shadow_offset), 
+              shadow_color, -1, cv2.LINE_AA)
+
+            # Fondo del botón
+            button_color = (0, 140, 255)  # Naranja fuerte
+            cv2.rectangle(frame, (button_x, button_y), (button_x + button_w, button_y + button_h), button_color, -1, cv2.LINE_AA)
+
+            # Borde blanco
+            cv2.rectangle(frame, (button_x, button_y), (button_x + button_w, button_y + button_h), (255, 255, 255), 2, cv2.LINE_AA)
+
+            # Texto centrado
+            text = "Salir"
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            font_scale = 1
+            thickness = 2
+            (text_width, text_height), _ = cv2.getTextSize(text, font, font_scale, thickness)
+            text_x = button_x + (button_w - text_width) // 2
+            text_y = button_y + (button_h + text_height) // 2 - 5
+            cv2.putText(frame, text, (text_x, text_y), font, font_scale, (255, 255, 255), thickness, cv2.LINE_AA)
+
+            hand_results = hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+            if hand_results.multi_hand_landmarks:
+                 for hand_landmarks, handedness in zip(hand_results.multi_hand_landmarks, hand_results.multi_handedness):
+                    # Verifica si es la mano derecha
+                        label = handedness.classification[0].label
+                        if label == 'Left':
+                            index_finger_tip = hand_landmarks.landmark[8]
+                            x_tip = int(index_finger_tip.x * width)
+                            y_tip = int(index_finger_tip.y * height)
+
+                            cv2.circle(frame, (x_tip, y_tip), 15, (0, 255, 0), -1)
+                    # Detectar si dedo está sobre el botón
+                            if button_x <= x_tip <= button_x + button_w and button_y <= y_tip <= button_y + button_h:
+                                speak("Regresando al menú")
+                                cap.release()
+                                cv2.destroyAllWindows()
+                                return True
+
+
+            image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             results = pose.process(image)
-            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+            image = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
             
             if results.pose_landmarks:
-                landmarks = results.pose_landmarks.landmark
                 
+                landmarks = results.pose_landmarks.landmark
+
                 # Obtener coordenadas del brazo derecho
                 shoulder = [landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value].x,
                             landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value].y]
