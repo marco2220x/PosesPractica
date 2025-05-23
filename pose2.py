@@ -82,6 +82,8 @@ def contar_saltos(target_series, target_reps):
             ret, frame = cap.read()
             if not ret:
                 break
+            
+            frame = cv2.flip(frame, 1)
 
             height, width, _ = frame.shape
 
