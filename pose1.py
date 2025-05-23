@@ -81,6 +81,9 @@ def contar_pushups(target_series, target_reps):
             if not ret:
                 break
 
+            # Aplicar efecto espejo (flip horizontal)
+            frame = cv2.flip(frame, 1)
+
             height, width, _ = frame.shape
 
             # Definir posición y tamaño del botón en la parte inferior izquierda
@@ -118,6 +121,7 @@ def contar_pushups(target_series, target_reps):
             text_y = button_y + (button_h + text_height) // 2 - 5
             cv2.putText(frame, text, (text_x, text_y), font, font_scale, (255, 255, 255), thickness, cv2.LINE_AA)
 
+            # Procesamiento de manos (convertir a RGB solo para el procesamiento)
             hand_results = hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             if hand_results.multi_hand_landmarks:
                  for hand_landmarks, handedness in zip(hand_results.multi_hand_landmarks, hand_results.multi_handedness):
@@ -136,13 +140,13 @@ def contar_pushups(target_series, target_reps):
                                 cv2.destroyAllWindows()
                                 return True
 
-
-            image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            results = pose.process(image)
-            image = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            # Procesamiento de pose (convertir a RGB solo para el procesamiento)
+            results = pose.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+            
+            # Usar frame directamente para visualización (ya está en BGR)
+            image = frame.copy()
             
             if results.pose_landmarks:
-                
                 landmarks = results.pose_landmarks.landmark
 
                 # Obtener coordenadas del brazo derecho
