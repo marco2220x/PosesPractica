@@ -4,7 +4,7 @@ import time
 import numpy as np
 import pose1, pose2, pose3
 import platform
-from audio_manage import reproducir_audio
+from audio_manage import reproducir_audio_menu
 
 mp_hands = mp.solutions.hands
 hands = mp_hands.Hands(min_detection_confidence=0.7, min_tracking_confidence=0.7)
@@ -26,6 +26,7 @@ back_button_selected = False
 welcome_alpha = 1.0  # Transparencia del texto de bienvenida
 welcome_detected = False  # Si se ha detectado el gesto de saludo
 select_index_sound = 1
+back_button_was_hovered = False
 
 # Diseño de interfaz
 COLORES = {
@@ -142,8 +143,9 @@ def detectar_saludo(hand_landmarks):
     return (fingers_extended[0] and not fingers_extended[1] and not fingers_extended[2] and fingers_extended[3])
 
 def main():
-    global current_screen, selected_exercise, selected_mode, selection_start_time, back_button_selected, select_index_sound
+    global current_screen, selected_exercise, selected_mode, selection_start_time, back_button_selected
     global welcome_alpha, welcome_detected
+    global back_button_was_hovered, select_index_sound
 
 
     if platform.system() == "Windows":
@@ -190,11 +192,12 @@ def main():
                         if ex_x <= px <= ex_x + ANCHO_RECUADRO and ex_y <= py <= ex_y + ALTO_RECUADRO:
                             if selected_exercise == i:
                                 if time.time() - selection_start_time >= 2:
+                                    select_index_sound = reproducir_audio_menu("selected", 1)
                                     current_screen = 2
                             else:
                                 selected_exercise = i
                                 selection_start_time = time.time()
-                                select_index_sound = reproducir_audio("select", select_index_sound)
+                                select_index_sound = reproducir_audio_menu("select", select_index_sound)
 
                 elif current_screen == 2:  # Selección de modo
                     # Verificar selección de dificultad
@@ -202,6 +205,7 @@ def main():
                         if modo_x <= px <= modo_x + ANCHO_RECUADRO and modo_y <= py <= modo_y + ALTO_RECUADRO:
                             if selected_mode == i:
                                 if time.time() - selection_start_time >= 2:
+                                    select_index_sound = reproducir_audio_menu("selected", 1)
                                     current_screen = 3
                                     # Iniciar ejercicio
                                     modo = modos[i]
@@ -240,18 +244,32 @@ def main():
                             else:
                                 selected_mode = i
                                 selection_start_time = time.time()
+                                select_index_sound = reproducir_audio_menu("select", select_index_sound)
                     
                     # Verificar selección del botón de regreso
                     back_x, back_y = POSICIONES["atras"]
-                    if back_x <= px <= back_x + ANCHO_RECUADRO and back_y <= py <= back_y + ALTO_BOTON_ATRAS:
+                    is_hovering_back = back_x <= px <= back_x + ANCHO_RECUADRO and back_y <= py <= back_y + ALTO_BOTON_ATRAS
+
+                    if is_hovering_back:
                         back_button_selected = True
+
+                        # Solo reproducir si el usuario acaba de entrar al botón
+                        if not back_button_was_hovered:
+                            select_index_sound = reproducir_audio_menu("back_on", 1)
+    
+                        back_button_was_hovered = True
+
                         if time.time() - selection_start_time >= 2:
+                            select_index_sound = reproducir_audio_menu("back", 1)
                             current_screen = 1
                             selected_mode = None
                     else:
                         if back_button_selected:
                             selection_start_time = time.time()
                             back_button_selected = False
+    
+                        # Marcar que ya no está sobre el botón
+                        back_button_was_hovered = False
 
         # Animación de desvanecimiento si se detectó el saludo
         if current_screen == 0 and welcome_detected:

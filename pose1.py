@@ -7,6 +7,7 @@ import pyttsx3
 import threading
 import time
 
+from audio_manage import reproducir_audio_poses
 
 
 # Configuración de texto a voz
@@ -57,6 +58,8 @@ def calculate_angle(a, b, c):
     return angle
 
 def contar_pushups(target_series, target_reps):
+    reproducir_audio_poses("start")
+
     # Variables de estado
     pushup_count = 0
     series_count = 0
@@ -182,11 +185,11 @@ def contar_pushups(target_series, target_reps):
                         # Solo incrementar el contador si no hemos completado la serie
                         if not series_completed:
                             pushup_count += 1
-                            speak(f"Flexión {pushup_count}")
-                            
+                            reproducir_audio_poses("correct")
                             # Verificar si se completó la serie
                             if pushup_count == target_reps:
                                 series_completed = True
+                                reproducir_audio_poses("serie")
                                 speak("¡Serie completada! Descansa antes de continuar")
                                 draw_text(image, "Serie completada!", (image.shape[1]//2 - 100, 200), 
                                          font_scale=1.2, text_color=(0, 0, 0), bg_color=(0, 255, 0))
@@ -201,6 +204,7 @@ def contar_pushups(target_series, target_reps):
                             
                             if series_count >= target_series:
                                 workout_completed = True
+                                reproducir_audio_poses("victory")
                                 speak("¡Entrenamiento completado! Buen trabajo")
                 else:
                     pushup_phase = "up"  # Reiniciar fase si no está en posición horizontal
