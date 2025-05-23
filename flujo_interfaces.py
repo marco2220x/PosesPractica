@@ -103,25 +103,35 @@ def dibujar_bienvenida(frame, alpha):
     # Fondo semi-transparente
     cv2.rectangle(overlay, (0, 0), (w, h), (0, 0, 0), -1)
     
-    # Texto de bienvenida
-    texto = "BIENVENIDO AL ENTRENADOR VIRTUAL"
-    tamaño = cv2.getTextSize(texto, cv2.FONT_HERSHEY_SIMPLEX, 1.5, 4)[0]
-    x = (w - tamaño[0]) // 2
-    y = (h - tamaño[1]) // 2
+    # Texto de bienvenida dividido en dos líneas
+    texto_linea1 = "BIENVENIDO AL"
+    texto_linea2 = "ENTRENADOR VIRTUAL"
     
-    cv2.putText(overlay, texto, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 1.5, COLORES["bienvenida"], 4, cv2.LINE_AA)
+    # Dibujar primera línea
+    tamaño1 = cv2.getTextSize(texto_linea1, cv2.FONT_HERSHEY_SIMPLEX, 1.5, 4)[0]
+    x1 = (w - tamaño1[0]) // 2
+    y1 = (h - tamaño1[1]) // 2 - 40  # Ajustar posición vertical
+    
+    cv2.putText(overlay, texto_linea1, (x1, y1), cv2.FONT_HERSHEY_SIMPLEX, 1.5, COLORES["bienvenida"], 4, cv2.LINE_AA)
+    
+    # Dibujar segunda línea
+    tamaño2 = cv2.getTextSize(texto_linea2, cv2.FONT_HERSHEY_SIMPLEX, 1.5, 4)[0]
+    x2 = (w - tamaño2[0]) // 2
+    y2 = y1 + tamaño1[1] + 20  # Posición debajo de la primera línea
+    
+    cv2.putText(overlay, texto_linea2, (x2, y2), cv2.FONT_HERSHEY_SIMPLEX, 1.5, COLORES["bienvenida"], 4, cv2.LINE_AA)
     
     # Instrucciones
     instruccion = "Saluda con la mano para continuar"
     tamaño_inst = cv2.getTextSize(instruccion, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)[0]
     x_inst = (w - tamaño_inst[0]) // 2
-    y_inst = y + tamaño[1] + 40
+    y_inst = y2 + tamaño2[1] + 40
     
     cv2.putText(overlay, instruccion, (x_inst, y_inst), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2, cv2.LINE_AA)
     
     # Aplicar transparencia
     cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
-
+    
 def detectar_saludo(hand_landmarks):
     """Detecta si el usuario está haciendo un gesto de saludo"""
     # Obtener landmarks de los dedos
