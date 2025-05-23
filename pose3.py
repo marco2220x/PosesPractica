@@ -32,9 +32,11 @@ def draw_text(image, text, position, font_scale=0.8, text_color=(255, 255, 255),
     cv2.rectangle(image, (x - 5, y - text_height - 5), (x + text_width + 5, y + 5), bg_color, -1)
     cv2.putText(image, text, (x, y), font, font_scale, text_color, thickness, cv2.LINE_AA)
 
+
 def countSquats(target_series, target_reps):
     mp_drawing = mp.solutions.drawing_utils
     mp_pose = mp.solutions.pose
+    mp_hands = mp.solutions.hands
 
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     up = False
@@ -42,17 +44,72 @@ def countSquats(target_series, target_reps):
     count = 0
     series_count = 0
 
-    with mp_pose.Pose(static_image_mode=False) as pose:
+    with mp_pose.Pose(static_image_mode=False) as pose, mp_hands.Hands(static_image_mode=False, max_num_hands=1, min_detection_confidence=0.7) as hands:
         while True:
             ret, frame = cap.read()
             if not ret:
                 break
 
+            height, width, _ = frame.shape
+
+            # Definir posición y tamaño del botón en la parte inferior izquierda
+            button_x, button_w = 10, 150
+            button_h = 50
+            button_y = height - button_h - 10  # 10 píxeles desde el borde inferior
+
+            overlay = frame.copy()
+            cv2.rectangle(overlay, (button_x, button_y), (button_x + button_w, button_y + button_h), (0, 255, 255), -1)  # Amarillo
+            alpha = 0.6  # Nivel de transparencia
+            cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
+
+           
+            # Sombra (ligeramente desplazada)
+            shadow_offset = 5
+            shadow_color = (0, 100, 200)
+            cv2.rectangle(frame, 
+              (button_x + shadow_offset, button_y + shadow_offset), 
+              (button_x + button_w + shadow_offset, button_y + button_h + shadow_offset), 
+              shadow_color, -1, cv2.LINE_AA)
+
+            # Fondo del botón
+            button_color = (0, 140, 255)  # Naranja fuerte
+            cv2.rectangle(frame, (button_x, button_y), (button_x + button_w, button_y + button_h), button_color, -1, cv2.LINE_AA)
+
+            # Borde blanco
+            cv2.rectangle(frame, (button_x, button_y), (button_x + button_w, button_y + button_h), (255, 255, 255), 2, cv2.LINE_AA)
+
+            # Texto centrado
+            text = "Salir"
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            font_scale = 1
+            thickness = 2
+            (text_width, text_height), _ = cv2.getTextSize(text, font, font_scale, thickness)
+            text_x = button_x + (button_w - text_width) // 2
+            text_y = button_y + (button_h + text_height) // 2 - 5
+            cv2.putText(frame, text, (text_x, text_y), font, font_scale, (255, 255, 255), thickness, cv2.LINE_AA)
+
+            hand_results = hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+            if hand_results.multi_hand_landmarks:
+                 for hand_landmarks, handedness in zip(hand_results.multi_hand_landmarks, hand_results.multi_handedness):
+                    # Verifica si es la mano derecha
+                        label = handedness.classification[0].label
+                        if label == 'Left':
+                            index_finger_tip = hand_landmarks.landmark[8]
+                            x_tip = int(index_finger_tip.x * width)
+                            y_tip = int(index_finger_tip.y * height)
+
+                            cv2.circle(frame, (x_tip, y_tip), 15, (0, 255, 0), -1)
+                    # Detectar si dedo está sobre el botón
+                            if button_x <= x_tip <= button_x + button_w and button_y <= y_tip <= button_y + button_h:
+                                speak("Regresando al menú")
+                                cap.release()
+                                cv2.destroyAllWindows()
+                                return True
+
             image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             results = pose.process(image)
             image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-            height, width, _ = frame.shape
-
+           
             if results.pose_landmarks:
                 try:
                     landmarks = results.pose_landmarks.landmark
@@ -120,7 +177,7 @@ def countSquats(target_series, target_reps):
             else:
                 output = frame.copy()
 
-            draw_text(output, f"Lagartijas: {count}/{target_reps}", (50, 50))
+            draw_text(output, f"Sentadillas: {count}/{target_reps}", (50, 50))
             draw_text(output, f"Series: {series_count}/{target_series}", (50, 100))
 
             cv2.imshow("Contador de Sentadillas", output)
